@@ -27,7 +27,7 @@ namespace UniversityAdmissionApp
                 // ex7(dbContext);
                 // ex8(dbContext, new List<string> { "Subject 1", "Subject 2" });
                 // ex9(dbContext);
-                ex10(dbContext);
+                // ex10(dbContext);
             }
             
         }
@@ -40,9 +40,9 @@ namespace UniversityAdmissionApp
                 where program.NameProgram == programName
                 select enrollee;
             
-            foreach (var en in enrolleesForProgram)
+            foreach (var i in enrolleesForProgram)
             {
-                Console.WriteLine($"Фамилия: {en.LastName}, Имя: {en.FirstName}, Отчество: {en.MiddleName}");
+                Console.WriteLine($"Фамилия, Имя, Отчество: {i.LastName} {i.FirstName} {i.MiddleName}");
             }
         }
         
@@ -63,20 +63,19 @@ namespace UniversityAdmissionApp
         {
             var examStats = from enrolleeSubject in dbContext.EnrolleeSubjects
                 join subject in dbContext.Subjects on enrolleeSubject.SubjectId equals subject.SubjectId 
-                group enrolleeSubject by enrolleeSubject.SubjectId into g
+                group new { enrolleeSubject, subject } by new { enrolleeSubject.SubjectId, subject.NameSubject } into g
                 select new
                 {
-                    SubjectId = g.Key,
-                    MinScore = g.Min(es => es.Result),
-                    MaxScore = g.Max(es => es.Result),
+                    NameSubject = g.Key.NameSubject,
+                    MinScore = g.Min(es => es.enrolleeSubject.Result),
+                    MaxScore = g.Max(es => es.enrolleeSubject.Result),
                     Count = g.Count()
                 };
             
             foreach (var i in examStats)
             {
-                Console.WriteLine($"Программа: {i}");
+                Console.WriteLine($"Предмет: {i.NameSubject}\nМинимальное количество баллов: {i.MinScore}\nМаксимальное количество баллов: {i.MaxScore}\nКоличество абитуриентов: {i.MinScore}\n");
             }
-            
         }
         
         static void ex4(UniversityDbContext dbContext, double minValue)
@@ -90,7 +89,6 @@ namespace UniversityAdmissionApp
             {
                 Console.WriteLine($"Программа: {i.NameProgram}");
             }
-            
         }
         
         static void ex5(UniversityDbContext dbContext)
@@ -100,43 +98,46 @@ namespace UniversityAdmissionApp
             
             foreach (var i in programsWithMaxPlan)
             {
-                Console.WriteLine($"Программа: {i.NameProgram}");
+                Console.WriteLine($"Программа: {i.NameProgram} ({i.Plan})");
             }
-            
         }
         
         static void ex6(UniversityDbContext dbContext)
         {
-            var additionalScores = from enrolleeAchievement in dbContext.EnrolleeAchievements
-                group enrolleeAchievement by enrolleeAchievement.EnrolleeId into g
+            var additionalScores = from enrolleeAchievement in dbContext.EnrolleeAchievements 
+                join enrollee in dbContext.Enrollees on enrolleeAchievement.EnrolleeId equals enrollee.EnrolleeId 
+                group enrolleeAchievement by new { enrolleeAchievement.EnrolleeId, enrollee.FirstName, enrollee.MiddleName } into g
                 select new
                 {
                     EnrolleeId = g.Key,
+                    EnrolleeFirstName = g.Key.FirstName,
+                    EnrolleeMiddleName = g.Key.MiddleName,
                     TotalBonus = g.Sum(ea => ea.Achievement.Bonus)
                 };
             
             foreach (var i in additionalScores)
             {
-                Console.WriteLine($"Абитуриент: {i}");
+                Console.WriteLine($"Абитуриент: {i.EnrolleeFirstName} {i.EnrolleeMiddleName} - {i.TotalBonus}");
             }
-            
         }
         
         static void ex7(UniversityDbContext dbContext)
         {
             var competition = from programEnrollee in dbContext.ProgramEnrollees
-                group programEnrollee by programEnrollee.ProgramId into g
+                join program in dbContext.Programs on programEnrollee.ProgramId equals program.ProgramId 
+
+                group programEnrollee by new { programEnrollee.ProgramId, program.NameProgram } into g
                 select new
                 {
                     ProgramId = g.Key,
+                    NameProgram = g.Key.NameProgram,
                     ApplicantsCount = g.Count()
                 };
             
             foreach (var i in competition)
             {
-                Console.WriteLine($"Программа: {i}");
+                Console.WriteLine($"Конкурс на программу: {i.NameProgram} - {i.ApplicantsCount}");
             }
-            
         }
         
         static void ex8(UniversityDbContext dbContext, List<string> requiredSubjects)
@@ -150,10 +151,9 @@ namespace UniversityAdmissionApp
             {
                 Console.WriteLine($"Программа: {i.NameProgram}");
             }
-            
         }
         
-        static void ex9(UniversityDbContext dbContext) // Посчитать количество баллов каждого абитуриента на каждую образовательну программу по результатам ЕГЭ.
+        static void ex9(UniversityDbContext dbContext) 
         {
             var scoresPerEnrolleePerProgram = from enrolleeSubject in dbContext.EnrolleeSubjects
                 join enrollee in dbContext.Enrollees on enrolleeSubject.EnrolleeId equals enrollee.EnrolleeId 
@@ -171,24 +171,23 @@ namespace UniversityAdmissionApp
             foreach (var i in scoresPerEnrolleePerProgram)
             {
 
-                Console.WriteLine($"Enrollee: {i.FirstName} {i.MiddleName}, Program: {i.ProgramName}, Total Score: {i.TotalScore}");
+                Console.WriteLine($"Абитуриент: {i.FirstName} {i.MiddleName}\nПрограмма: {i.ProgramName}\nКоличество баллов: {i.TotalScore}\n");
             }
         }
         
-        static void ex10(UniversityDbContext dbContext) // Вывести абитуриентов, которые не могут быть зачислены на образовательную программу.
+        static void ex10(UniversityDbContext dbContext) 
         {
-            // var unadmittedEnrollees = from enrollee in dbContext.Enrollees
-            //     join enrolleeSubject in dbContext.EnrolleeSubjects on enrollee.EnrolleeId equals enrolleeSubject.EnrolleeId
-            //     group enrolleeSubject by enrollee.EnrolleeId into g
-            //     where g.All(es => es.Result < es.ProgramEnrollee.Program.ProgramSubjects.Min(ps => ps.MinResult))
-            //     select g.FirstOrDefault().Enrollee;
-
+            var unadmittedEnrollees = from enrollee in dbContext.Enrollees
+                join enrolleeSubject in dbContext.EnrolleeSubjects on enrollee.EnrolleeId equals enrolleeSubject.EnrolleeId
+                join programEnrollee in dbContext.ProgramEnrollees on enrollee.EnrolleeId equals programEnrollee.EnrolleeId
+                join programSubject in dbContext.ProgramSubjects on programEnrollee.ProgramId equals programSubject.ProgramId 
+                where enrolleeSubject.Result < programSubject.MinResult
+                select new { enrollee, enrolleeSubject.Result, programSubject.MinResult };
             
-            // foreach (var i in unadmittedEnrollees)
-            // {
-            //     Console.WriteLine($"Программа: {i}");
-            // }
-            
+            foreach (var i in unadmittedEnrollees)
+            {
+                Console.WriteLine($"Абитуриент: {i.enrollee.FirstName} {i.enrollee.MiddleName} {i.enrollee.LastName} {i.Result} ({i.MinResult})");
+            }
         }
     }
     
